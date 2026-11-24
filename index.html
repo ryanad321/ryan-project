@@ -1,0 +1,908 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>All-in-One File Merger, Converter & Compressor</title>
+
+  <!-- Libraries -->
+  <script src="https://unpkg.com/pdf-lib@1.17.1/dist/pdf-lib.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+  <script src="https://cdn.sheetjs.com/xlsx-0.20.2/package/dist/xlsx.full.min.js"></script>
+  <script src="https://unpkg.com/mammoth@1.6.0/mammoth.browser.min.js"></script>
+  <script src="https://unpkg.com/docx@8.5.0/build/index.umd.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+
+  <style>
+    :root {
+      --bg: #f1f5f9;
+      --card: #ffffff;
+      --primary: #2563eb;
+      --primary-hover: #1d4ed8;
+      --text: #0f172a;
+      --muted: #64748b;
+      --border: #cbd5e1;
+      --danger: #dc2626;
+      --success: #16a34a;
+    }
+    * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+    body {
+      font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      margin: 0;
+      padding: 12px;
+      display: flex;
+      justify-content: center;
+      align-items: flex-start;
+      min-height: 100vh;
+    }
+    .container {
+      background: var(--card);
+      width: 100%;
+      max-width: 720px;
+      padding: 20px;
+      border-radius: 14px;
+      box-shadow: 0 8px 25px rgba(0, 0, 0, 0.07);
+    }
+    h2 {
+      margin: 0 0 14px;
+      text-align: center;
+      font-size: clamp(1.15rem, 3.5vw, 1.5rem);
+    }
+
+    /* Tab Menu Navigation */
+    .tabs {
+      display: flex;
+      background: #e2e8f0;
+      padding: 4px;
+      border-radius: 10px;
+      margin-bottom: 18px;
+      gap: 4px;
+    }
+    .tab-btn {
+      flex: 1;
+      padding: 11px 10px;
+      border: none;
+      border-radius: 8px;
+      background: transparent;
+      font-size: clamp(0.8rem, 2.5vw, 0.92rem);
+      font-weight: 600;
+      color: #475569;
+      cursor: pointer;
+      transition: 0.2s;
+    }
+    .tab-btn.active {
+      background: #ffffff;
+      color: var(--primary);
+      box-shadow: 0 2px 6px rgba(0,0,0,0.08);
+    }
+    .tab-content { display: none; }
+    .tab-content.active { display: block; }
+
+    .subtitle {
+      text-align: center;
+      color: var(--muted);
+      font-size: clamp(0.8rem, 2.4vw, 0.88rem);
+      margin-bottom: 16px;
+      line-height: 1.45;
+    }
+    .drop-zone {
+      border: 2px dashed var(--border);
+      border-radius: 10px;
+      padding: 24px 14px;
+      text-align: center;
+      cursor: pointer;
+      background: #f8fafc;
+      transition: 0.2s;
+    }
+    .drop-zone:hover, .drop-zone.dragover {
+      border-color: var(--primary);
+      background: #eff6ff;
+    }
+    .drop-zone strong { color: var(--primary); }
+
+    .file-list {
+      margin-top: 14px;
+      max-height: 260px;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    .file-item {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      background: #f8fafc;
+      border: 1px solid #e2e8f0;
+      padding: 8px 10px;
+      border-radius: 8px;
+      font-size: 0.85rem;
+      gap: 8px;
+    }
+    .file-info {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      overflow: hidden;
+      flex: 1;
+      min-width: 0;
+    }
+    .file-name {
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      font-weight: 500;
+    }
+    .file-size {
+      color: var(--muted);
+      font-size: 0.75rem;
+      flex-shrink: 0;
+    }
+    .badge {
+      background: #dbeafe;
+      color: #1e40af;
+      padding: 2px 6px;
+      border-radius: 5px;
+      font-size: 0.7rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      flex-shrink: 0;
+    }
+    .item-controls {
+      display: flex;
+      gap: 4px;
+      flex-shrink: 0;
+    }
+    .icon-btn {
+      background: #e2e8f0;
+      color: var(--text);
+      border: none;
+      border-radius: 6px;
+      width: 32px;
+      height: 32px;
+      cursor: pointer;
+      font-size: 0.78rem;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 0;
+    }
+    .icon-btn:hover:not(:disabled) { background: #cbd5e1; }
+    .icon-btn:disabled { opacity: 0.35; cursor: not-allowed; }
+    .icon-btn.del { background: #fee2e2; color: var(--danger); }
+    .icon-btn.del:hover { background: #fecaca; }
+
+    .control-box {
+      margin-top: 16px;
+      padding-top: 14px;
+      border-top: 1px solid #e2e8f0;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    label {
+      font-size: 0.88rem;
+      font-weight: 600;
+    }
+    select {
+      padding: 11px 12px;
+      border-radius: 8px;
+      border: 1px solid var(--border);
+      font-size: 0.9rem;
+      background: #fff;
+      color: var(--text);
+      width: 100%;
+    }
+    .note {
+      font-size: 0.8rem;
+      color: var(--muted);
+      background: #f8fafc;
+      padding: 9px 11px;
+      border-radius: 6px;
+      border-left: 3px solid var(--primary);
+      line-height: 1.4;
+    }
+    .status {
+      margin-top: 12px;
+      text-align: center;
+      font-size: 0.88rem;
+      font-weight: 500;
+      min-height: 20px;
+      line-height: 1.4;
+    }
+    .status.error { color: var(--danger); }
+    .status.success { color: var(--success); }
+    .actions {
+      display: flex;
+      gap: 10px;
+      margin-top: 14px;
+    }
+    .btn {
+      padding: 12px;
+      border: none;
+      border-radius: 8px;
+      font-size: 0.92rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: 0.2s;
+    }
+    .btn-primary {
+      background: var(--primary);
+      color: #fff;
+      flex: 1;
+    }
+    .btn-primary:hover:not(:disabled) { background: var(--primary-hover); }
+    .btn-primary:disabled { background: #94a3b8; cursor: not-allowed; }
+    .btn-reset {
+      background: #e2e8f0;
+      color: var(--text);
+      width: 96px;
+    }
+    .btn-reset:hover { background: #cbd5e1; }
+
+    @media (min-width: 640px) {
+      body { padding: 24px; }
+      .container { padding: 28px; }
+    }
+  </style>
+</head>
+<body>
+
+<div class="container">
+  <h2>Tools Dokumen & File</h2>
+
+  <!-- Navigasi Menu -->
+  <div class="tabs">
+    <button class="tab-btn active" type="button" onclick="switchTab('merge')">1. Gabung & Konversi</button>
+    <button class="tab-btn" type="button" onclick="switchTab('compress')">2. Kompres Ukuran File</button>
+  </div>
+
+  <!-- ================= TAB 1: GABUNG & KONVERSI ================= -->
+  <div id="tab-merge" class="tab-content active">
+    <p class="subtitle">
+      Gabungkan berbagai format (<b>PDF, JPG, PNG, Word, Excel, CSV, TXT</b>) menjadi 1 file utuh.
+    </p>
+
+    <div class="drop-zone" id="mergeDropZone">
+      <strong>Ketuk untuk memilih file</strong> atau seret ke sini<br>
+      <small style="color:#64748b">Bisa pilih beberapa file berbeda format sekaligus</small>
+      <input type="file" id="mergeFileInput" multiple hidden accept=".pdf,.jpg,.jpeg,.png,.webp,.docx,.xlsx,.xls,.csv,.txt">
+    </div>
+
+    <div class="file-list" id="mergeFileList"></div>
+
+    <div class="control-box">
+      <label for="outputFormat">Pilih Format Hasil Gabungan:</label>
+      <select id="outputFormat">
+        <option value="pdf">PDF (.pdf) — Gabung semua gambar, PDF, Word, Excel & teks</option>
+        <option value="docx">Word (.docx) — Gabung teks dokumen & sisipkan gambar</option>
+        <option value="xlsx">Excel (.xlsx) — Gabung tabel & data ke dalam sheet Excel</option>
+        <option value="jpg">Gambar JPG HD (.jpg / .zip) — Ubah tiap halaman jadi gambar tajam</option>
+      </select>
+      <div class="note" id="mergeNote">
+        Rekomendasi terbaik: Gambar disisipkan resolusi asli dan halaman PDF asli digabung langsung tanpa blur.
+      </div>
+    </div>
+
+    <div class="status" id="mergeStatus"></div>
+
+    <div class="actions">
+      <button class="btn btn-reset" id="mergeResetBtn" type="button">Reset</button>
+      <button class="btn btn-primary" id="mergeProcessBtn" type="button" disabled>Gabungkan & Unduh</button>
+    </div>
+  </div>
+
+  <!-- ================= TAB 2: KOMPRES UKURAN FILE ================= -->
+  <div id="tab-compress" class="tab-content">
+    <p class="subtitle">
+      Perkecil ukuran file khusus untuk:<br>
+      <b>Word (.docx)</b>, <b>Excel (.xlsx)</b>, <b>PDF (.pdf)</b>, dan <b>Semua Format Gambar</b>.
+    </p>
+
+    <div class="drop-zone" id="compDropZone">
+      <strong>Ketuk untuk memilih file yang ingin dikompres</strong> atau seret ke sini<br>
+      <small style="color:#64748b">Hanya menerima: Word (.docx), Excel (.xlsx), PDF (.pdf), & Gambar</small>
+      <input type="file" id="compFileInput" multiple hidden accept=".docx,.xlsx,.pdf,image/*">
+    </div>
+
+    <div class="file-list" id="compFileList"></div>
+
+    <div class="control-box">
+      <label for="compLevel">Tingkat Kompresi:</label>
+      <select id="compLevel">
+        <option value="medium" selected>Sedang / Seimbang (Direkomendasikan — Teks & gambar tetap jelas)</option>
+        <option value="low">Ringan (Kualitas maksimal, pengurangan ukuran moderat)</option>
+        <option value="high">Kuat / Maksimal (Ukuran sekecil mungkin untuk batas upload ketat)</option>
+      </select>
+      <div class="note" id="compNote">
+        Word & Excel dikompres tanpa merusak format/rumus (mengoptimalkan media & struktur arsip). PDF & Gambar disesuaikan resolusi dan kualitasnya.
+      </div>
+    </div>
+
+    <div class="status" id="compStatus"></div>
+
+    <div class="actions">
+      <button class="btn btn-reset" id="compResetBtn" type="button">Reset</button>
+      <button class="btn btn-primary" id="compProcessBtn" type="button" disabled>Kompres & Unduh</button>
+    </div>
+  </div>
+</div>
+
+<script>
+  pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+
+  function switchTab(tabName) {
+    document.querySelectorAll('.tab-btn').forEach((b, i) => {
+      b.classList.toggle('active', (tabName === 'merge' && i === 0) || (tabName === 'compress' && i === 1));
+    });
+    document.getElementById('tab-merge').classList.toggle('active', tabName === 'merge');
+    document.getElementById('tab-compress').classList.toggle('active', tabName === 'compress');
+  }
+
+  function getExt(name) {
+    return name.split('.').pop().toLowerCase();
+  }
+
+  function formatBytes(bytes) {
+    if (bytes === 0) return '0 B';
+    const k = 1024;
+    const sizes = ['B', 'KB', 'MB', 'GB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+  }
+
+  function downloadBlob(blob, filename) {
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+  }
+
+  // =========================================================================
+  // LOGIKA TAB 1: GABUNG & KONVERSI FILE
+  // =========================================================================
+  const mergeDropZone = document.getElementById('mergeDropZone');
+  const mergeFileInput = document.getElementById('mergeFileInput');
+  const mergeFileListEl = document.getElementById('mergeFileList');
+  const outputFormat = document.getElementById('outputFormat');
+  const mergeNote = document.getElementById('mergeNote');
+  const mergeStatus = document.getElementById('mergeStatus');
+  const mergeProcessBtn = document.getElementById('mergeProcessBtn');
+  const mergeResetBtn = document.getElementById('mergeResetBtn');
+
+  let mergeQueue = [];
+  const mergeAllowedExts = ['pdf', 'jpg', 'jpeg', 'png', 'webp', 'docx', 'xlsx', 'xls', 'csv', 'txt'];
+
+  const mergeNotes = {
+    pdf: 'Rekomendasi terbaik: Gambar disisipkan resolusi asli dan halaman PDF asli digabung langsung tanpa blur.',
+    docx: 'Cocok untuk menyatukan dokumen teks (.docx, .txt, .pdf teks) dan foto/gambar ke dalam 1 file Microsoft Word.',
+    xlsx: 'Setiap file Excel/CSV/teks akan disusun rapi ke dalam sheet Excel (.xlsx).',
+    jpg: 'Setiap halaman hasil gabungan akan dirender dengan resolusi tinggi (2.5x HD). Jika lebih dari 1 halaman, otomatis diunduh sebagai .ZIP.'
+  };
+
+  outputFormat.addEventListener('change', () => mergeNote.textContent = mergeNotes[outputFormat.value]);
+
+  mergeDropZone.addEventListener('click', () => mergeFileInput.click());
+  mergeDropZone.addEventListener('dragover', (e) => { e.preventDefault(); mergeDropZone.classList.add('dragover'); });
+  mergeDropZone.addEventListener('dragleave', () => mergeDropZone.classList.remove('dragover'));
+  mergeDropZone.addEventListener('drop', (e) => {
+    e.preventDefault();
+    mergeDropZone.classList.remove('dragover');
+    addMergeFiles(e.dataTransfer.files);
+  });
+  mergeFileInput.addEventListener('change', (e) => { addMergeFiles(e.target.files); mergeFileInput.value = ''; });
+  mergeResetBtn.addEventListener('click', () => { mergeQueue = []; renderMergeList(); setMergeStatus('', ''); });
+
+  function setMergeStatus(msg, type = '') {
+    mergeStatus.textContent = msg;
+    mergeStatus.className = 'status ' + type;
+  }
+
+  function addMergeFiles(files) {
+    let skipped = 0;
+    for (const f of Array.from(files)) {
+      if (mergeAllowedExts.includes(getExt(f.name))) mergeQueue.push(f);
+      else skipped++;
+    }
+    if (skipped > 0) setMergeStatus(`${skipped} file dilewati karena format tidak didukung.`, 'error');
+    else if (mergeQueue.length > 0) setMergeStatus(`${mergeQueue.length} file siap digabung.`, 'success');
+    renderMergeList();
+  }
+
+  function moveMergeItem(index, dir) {
+    const newIndex = index + dir;
+    if (newIndex < 0 || newIndex >= mergeQueue.length) return;
+    [mergeQueue[index], mergeQueue[newIndex]] = [mergeQueue[newIndex], mergeQueue[index]];
+    renderMergeList();
+  }
+
+  function removeMergeItem(index) {
+    mergeQueue.splice(index, 1);
+    renderMergeList();
+    if (mergeQueue.length === 0) setMergeStatus('', '');
+  }
+
+  function renderMergeList() {
+    mergeFileListEl.innerHTML = '';
+    mergeQueue.forEach((file, idx) => {
+      const div = document.createElement('div');
+      div.className = 'file-item';
+      div.innerHTML = `
+        <div class="file-info">
+          <span style="color:#64748b;font-weight:600;">${idx + 1}.</span>
+          <span class="file-name" title="${file.name}">${file.name}</span>
+          <span class="badge">${getExt(file.name)}</span>
+        </div>
+        <div class="item-controls">
+          <button class="icon-btn" type="button" ${idx === 0 ? 'disabled' : ''} onclick="moveMergeItem(${idx}, -1)">▲</button>
+          <button class="icon-btn" type="button" ${idx === mergeQueue.length - 1 ? 'disabled' : ''} onclick="moveMergeItem(${idx}, 1)">▼</button>
+          <button class="icon-btn del" type="button" onclick="removeMergeItem(${idx})">✕</button>
+        </div>
+      `;
+      mergeFileListEl.appendChild(div);
+    });
+    mergeProcessBtn.disabled = mergeQueue.length === 0;
+  }
+
+  async function imageToPngBytes(file) {
+    return new Promise((resolve, reject) => {
+      const img = new Image();
+      const url = URL.createObjectURL(file);
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        canvas.width = img.naturalWidth;
+        canvas.height = img.naturalHeight;
+        canvas.getContext('2d').drawImage(img, 0, 0);
+        canvas.toBlob(async (blob) => {
+          URL.revokeObjectURL(url);
+          resolve({ bytes: await blob.arrayBuffer(), width: img.naturalWidth, height: img.naturalHeight });
+        }, 'image/png');
+      };
+      img.onerror = (e) => { URL.revokeObjectURL(url); reject(e); };
+      img.src = url;
+    });
+  }
+
+  async function appendTextPagesToPdf(pdfDoc, text) {
+    const font = await pdfDoc.embedFont(PDFLib.StandardFonts.Helvetica);
+    const fontSize = 10.5, lineHeight = 15, margin = 45;
+    const pageWidth = 595.28, pageHeight = 841.89;
+    const maxWidth = pageWidth - margin * 2;
+    const rawLines = text.replace(/\r/g, '').split('\n');
+    const wrappedLines = [];
+
+    for (const raw of rawLines) {
+      if (raw.trim() === '') { wrappedLines.push(''); continue; }
+      const words = raw.split(' ');
+      let currentLine = '';
+      for (const word of words) {
+        const testLine = currentLine ? currentLine + ' ' + word : word;
+        if (font.widthOfTextAtSize(testLine, fontSize) > maxWidth && currentLine) {
+          wrappedLines.push(currentLine);
+          currentLine = word;
+        } else {
+          currentLine = testLine;
+        }
+      }
+      if (currentLine) wrappedLines.push(currentLine);
+    }
+
+    let page = pdfDoc.addPage([pageWidth, pageHeight]);
+    let y = pageHeight - margin;
+    for (const line of wrappedLines) {
+      if (y < margin + lineHeight) {
+        page = pdfDoc.addPage([pageWidth, pageHeight]);
+        y = pageHeight - margin;
+      }
+      if (line) page.drawText(line, { x: margin, y, size: fontSize, font });
+      y -= lineHeight;
+    }
+  }
+
+  async function buildMergedPdfBytes(files) {
+    const mergedPdf = await PDFLib.PDFDocument.create();
+    for (const file of files) {
+      const ext = getExt(file.name);
+      if (ext === 'pdf') {
+        const srcPdf = await PDFLib.PDFDocument.load(await file.arrayBuffer());
+        const pages = await mergedPdf.copyPages(srcPdf, srcPdf.getPageIndices());
+        pages.forEach((p) => mergedPdf.addPage(p));
+      } else if (['jpg', 'jpeg', 'png', 'webp'].includes(ext)) {
+        let embeddedImg, imgW, imgH;
+        if (ext === 'jpg' || ext === 'jpeg') {
+          embeddedImg = await mergedPdf.embedJpg(await file.arrayBuffer());
+          imgW = embeddedImg.width; imgH = embeddedImg.height;
+        } else if (ext === 'png') {
+          embeddedImg = await mergedPdf.embedPng(await file.arrayBuffer());
+          imgW = embeddedImg.width; imgH = embeddedImg.height;
+        } else {
+          const pngData = await imageToPngBytes(file);
+          embeddedImg = await mergedPdf.embedPng(pngData.bytes);
+          imgW = pngData.width; imgH = pngData.height;
+        }
+        const isLandscape = imgW > imgH;
+        const pageW = isLandscape ? 841.89 : 595.28;
+        const pageH = isLandscape ? 595.28 : 841.89;
+        const margin = 24;
+        const scale = Math.min((pageW - margin * 2) / imgW, (pageH - margin * 2) / imgH);
+        const drawW = imgW * scale, drawH = imgH * scale;
+        const page = mergedPdf.addPage([pageW, pageH]);
+        page.drawImage(embeddedImg, { x: (pageW - drawW) / 2, y: (pageH - drawH) / 2, width: drawW, height: drawH });
+      } else if (ext === 'docx') {
+        const result = await mammoth.extractRawText({ arrayBuffer: await file.arrayBuffer() });
+        await appendTextPagesToPdf(mergedPdf, `=== ${file.name} ===\n\n` + result.value);
+      } else if (['xlsx', 'xls', 'csv'].includes(ext)) {
+        const wb = XLSX.read(await file.arrayBuffer());
+        let sheetText = `=== ${file.name} ===\n\n`;
+        wb.SheetNames.forEach((name) => {
+          sheetText += `[Sheet: ${name}]\n${XLSX.utils.sheet_to_csv(wb.Sheets[name], { FS: ' | ' })}\n\n`;
+        });
+        await appendTextPagesToPdf(mergedPdf, sheetText);
+      } else if (ext === 'txt') {
+        await appendTextPagesToPdf(mergedPdf, `=== ${file.name} ===\n\n` + await file.text());
+      }
+    }
+    return await mergedPdf.save();
+  }
+
+  async function exportToWord(files) {
+    const { Document, Packer, Paragraph, TextRun, ImageRun, HeadingLevel } = docx;
+    const children = [];
+    for (const file of files) {
+      const ext = getExt(file.name);
+      children.push(new Paragraph({ text: file.name, heading: HeadingLevel.HEADING_2, spacing: { before: 240, after: 120 } }));
+      if (['jpg', 'jpeg', 'png', 'webp'].includes(ext)) {
+        const pngData = await imageToPngBytes(file);
+        const maxW = 550;
+        const ratio = pngData.width > maxW ? maxW / pngData.width : 1;
+        children.push(new Paragraph({
+          children: [new ImageRun({ data: pngData.bytes, transformation: { width: Math.round(pngData.width * ratio), height: Math.round(pngData.height * ratio) } })]
+        }));
+      } else if (ext === 'docx') {
+        const res = await mammoth.extractRawText({ arrayBuffer: await file.arrayBuffer() });
+        res.value.split('\n').forEach((line) => children.push(new Paragraph({ children: [new TextRun(line)] })));
+      } else if (ext === 'pdf') {
+        const pdf = await pdfjsLib.getDocument({ data: await file.arrayBuffer() }).promise;
+        for (let p = 1; p <= pdf.numPages; p++) {
+          const page = await pdf.getPage(p);
+          const content = await page.getTextContent();
+          children.push(new Paragraph({ children: [new TextRun(`[Halaman ${p}] ${content.items.map((i) => i.str).join(' ')}`)] }));
+        }
+      } else if (['xlsx', 'xls', 'csv'].includes(ext)) {
+        const wb = XLSX.read(await file.arrayBuffer());
+        wb.SheetNames.forEach((sName) => {
+          XLSX.utils.sheet_to_csv(wb.Sheets[sName], { FS: ' | ' }).split('\n').forEach((line) => children.push(new Paragraph({ children: [new TextRun(line)] })));
+        });
+      } else if (ext === 'txt') {
+        (await file.text()).split('\n').forEach((line) => children.push(new Paragraph({ children: [new TextRun(line)] })));
+      }
+    }
+    const doc = new Document({ sections: [{ children }] });
+    downloadBlob(await Packer.toBlob(doc), `hasil_gabungan_${Date.now()}.docx`);
+  }
+
+  async function exportToExcel(files) {
+    const outWb = XLSX.utils.book_new();
+    let sheetCounter = 1;
+    for (const file of files) {
+      const ext = getExt(file.name);
+      const baseName = file.name.replace(/\.[^/.]+$/, '').substring(0, 22);
+      if (['xlsx', 'xls', 'csv'].includes(ext)) {
+        const wb = XLSX.read(await file.arrayBuffer());
+        wb.SheetNames.forEach((sName) => {
+          XLSX.utils.book_append_sheet(outWb, wb.Sheets[sName], `${sheetCounter}_${baseName}`.substring(0, 31));
+          sheetCounter++;
+        });
+      } else if (ext === 'txt') {
+        const rows = (await file.text()).split('\n').map((r) => [r]);
+        XLSX.utils.book_append_sheet(outWb, XLSX.utils.aoa_to_sheet(rows), `${sheetCounter}_${baseName}`.substring(0, 31));
+        sheetCounter++;
+      } else if (ext === 'docx') {
+        const res = await mammoth.extractRawText({ arrayBuffer: await file.arrayBuffer() });
+        XLSX.utils.book_append_sheet(outWb, XLSX.utils.aoa_to_sheet(res.value.split('\n').map((r) => [r])), `${sheetCounter}_${baseName}`.substring(0, 31));
+        sheetCounter++;
+      } else if (ext === 'pdf') {
+        const pdf = await pdfjsLib.getDocument({ data: await file.arrayBuffer() }).promise;
+        const rows = [];
+        for (let p = 1; p <= pdf.numPages; p++) {
+          const page = await pdf.getPage(p);
+          const content = await page.getTextContent();
+          rows.push([`Halaman ${p}`, content.items.map((i) => i.str).join(' ')]);
+        }
+        XLSX.utils.book_append_sheet(outWb, XLSX.utils.aoa_to_sheet(rows), `${sheetCounter}_${baseName}`.substring(0, 31));
+        sheetCounter++;
+      } else {
+        XLSX.utils.book_append_sheet(outWb, XLSX.utils.aoa_to_sheet([['File Gambar:', file.name]]), `${sheetCounter}_${baseName}`.substring(0, 31));
+        sheetCounter++;
+      }
+    }
+    XLSX.writeFile(outWb, `hasil_gabungan_${Date.now()}.xlsx`);
+  }
+
+  async function exportToJpgHD(files) {
+    const pdfBytes = await buildMergedPdfBytes(files);
+    const pdf = await pdfjsLib.getDocument({ data: pdfBytes }).promise;
+    const totalPages = pdf.numPages;
+    const scale = 2.5;
+    if (totalPages === 1) {
+      const page = await pdf.getPage(1);
+      const viewport = page.getViewport({ scale });
+      const canvas = document.createElement('canvas');
+      canvas.width = viewport.width; canvas.height = viewport.height;
+      await page.render({ canvasContext: canvas.getContext('2d'), viewport }).promise;
+      canvas.toBlob((blob) => downloadBlob(blob, `hasil_gabungan_${Date.now()}.jpg`), 'image/jpeg', 0.95);
+    } else {
+      const zip = new JSZip();
+      for (let p = 1; p <= totalPages; p++) {
+        const page = await pdf.getPage(p);
+        const viewport = page.getViewport({ scale });
+        const canvas = document.createElement('canvas');
+        canvas.width = viewport.width; canvas.height = viewport.height;
+        await page.render({ canvasContext: canvas.getContext('2d'), viewport }).promise;
+        const blob = await new Promise((res) => canvas.toBlob(res, 'image/jpeg', 0.95));
+        zip.file(`halaman_${String(p).padStart(2, '0')}.jpg`, blob);
+      }
+      downloadBlob(await zip.generateAsync({ type: 'blob' }), `hasil_gabungan_jpg_${Date.now()}.zip`);
+    }
+  }
+
+  mergeProcessBtn.addEventListener('click', async () => {
+    if (mergeQueue.length === 0) return;
+    mergeProcessBtn.disabled = true;
+    const fmt = outputFormat.value;
+    setMergeStatus('Sedang memproses dan menggabungkan file...', '');
+    try {
+      if (fmt === 'pdf') {
+        const bytes = await buildMergedPdfBytes(mergeQueue);
+        downloadBlob(new Blob([bytes], { type: 'application/pdf' }), `hasil_gabungan_${Date.now()}.pdf`);
+      } else if (fmt === 'docx') await exportToWord(mergeQueue);
+      else if (fmt === 'xlsx') await exportToExcel(mergeQueue);
+      else if (fmt === 'jpg') await exportToJpgHD(mergeQueue);
+      setMergeStatus('Berhasil digabungkan dan file otomatis terunduh!', 'success');
+    } catch (err) {
+      console.error(err);
+      setMergeStatus('Terjadi kesalahan saat memproses file.', 'error');
+    } finally {
+      mergeProcessBtn.disabled = false;
+    }
+  });
+
+  // =========================================================================
+  // LOGIKA TAB 2: KOMPRES UKURAN FILE (WORD, EXCEL, PDF, GAMBAR)
+  // =========================================================================
+  const compDropZone = document.getElementById('compDropZone');
+  const compFileInput = document.getElementById('compFileInput');
+  const compFileListEl = document.getElementById('compFileList');
+  const compLevel = document.getElementById('compLevel');
+  const compStatus = document.getElementById('compStatus');
+  const compProcessBtn = document.getElementById('compProcessBtn');
+  const compResetBtn = document.getElementById('compResetBtn');
+
+  let compQueue = [];
+
+  function isValidCompressFile(file) {
+    const ext = getExt(file.name);
+    const isImage = file.type.startsWith('image/') || ['jpg', 'jpeg', 'png', 'webp', 'bmp', 'gif', 'tiff', 'svg', 'ico', 'heic'].includes(ext);
+    const isAllowedDoc = ['docx', 'xlsx', 'pdf'].includes(ext);
+    return isImage || isAllowedDoc;
+  }
+
+  function setCompStatus(msg, type = '') {
+    compStatus.textContent = msg;
+    compStatus.className = 'status ' + type;
+  }
+
+  compDropZone.addEventListener('click', () => compFileInput.click());
+  compDropZone.addEventListener('dragover', (e) => { e.preventDefault(); compDropZone.classList.add('dragover'); });
+  compDropZone.addEventListener('dragleave', () => compDropZone.classList.remove('dragover'));
+  compDropZone.addEventListener('drop', (e) => {
+    e.preventDefault();
+    compDropZone.classList.remove('dragover');
+    addCompFiles(e.dataTransfer.files);
+  });
+  compFileInput.addEventListener('change', (e) => { addCompFiles(e.target.files); compFileInput.value = ''; });
+  compResetBtn.addEventListener('click', () => { compQueue = []; renderCompList(); setCompStatus('', ''); });
+
+  function addCompFiles(files) {
+    let rejected = 0;
+    for (const f of Array.from(files)) {
+      if (isValidCompressFile(f)) compQueue.push(f);
+      else rejected++;
+    }
+    if (rejected > 0) setCompStatus(`${rejected} file ditolak! Hanya boleh Word (.docx), Excel (.xlsx), PDF (.pdf), dan Gambar.`, 'error');
+    else if (compQueue.length > 0) setCompStatus(`${compQueue.length} file siap dikompres.`, 'success');
+    renderCompList();
+  }
+
+  function removeCompItem(index) {
+    compQueue.splice(index, 1);
+    renderCompList();
+    if (compQueue.length === 0) setCompStatus('', '');
+  }
+
+  function renderCompList() {
+    compFileListEl.innerHTML = '';
+    compQueue.forEach((file, idx) => {
+      const ext = getExt(file.name);
+      const div = document.createElement('div');
+      div.className = 'file-item';
+      div.innerHTML = `
+        <div class="file-info">
+          <span style="color:#64748b;font-weight:600;">${idx + 1}.</span>
+          <span class="file-name" title="${file.name}">${file.name}</span>
+          <span class="file-size">(${formatBytes(file.size)})</span>
+          <span class="badge">${ext}</span>
+        </div>
+        <div class="item-controls">
+          <button class="icon-btn del" type="button" onclick="removeCompItem(${idx})">✕</button>
+        </div>
+      `;
+      compFileListEl.appendChild(div);
+    });
+    compProcessBtn.disabled = compQueue.length === 0;
+  }
+
+  function getCompressParams(level) {
+    if (level === 'low') return { imgQuality: 0.82, maxDim: 2200, pdfScale: 1.8, pdfQuality: 0.8 };
+    if (level === 'high') return { imgQuality: 0.45, maxDim: 1200, pdfScale: 1.1, pdfQuality: 0.5 };
+    return { imgQuality: 0.65, maxDim: 1600, pdfScale: 1.4, pdfQuality: 0.65 };
+  }
+
+  async function compressImageBlob(blobInput, params, keepPngAlpha = false) {
+    return new Promise((resolve, reject) => {
+      const img = new Image();
+      const url = URL.createObjectURL(blobInput);
+      img.onload = () => {
+        let w = img.naturalWidth;
+        let h = img.naturalHeight;
+        if (w > params.maxDim || h > params.maxDim) {
+          const ratio = Math.min(params.maxDim / w, params.maxDim / h);
+          w = Math.round(w * ratio);
+          h = Math.round(h * ratio);
+        }
+        const canvas = document.createElement('canvas');
+        canvas.width = w;
+        canvas.height = h;
+        const ctx = canvas.getContext('2d');
+        if (!keepPngAlpha) {
+          ctx.fillStyle = '#ffffff';
+          ctx.fillRect(0, 0, w, h);
+        }
+        ctx.drawImage(img, 0, 0, w, h);
+        const mime = keepPngAlpha ? 'image/png' : 'image/jpeg';
+        canvas.toBlob((outBlob) => {
+          URL.revokeObjectURL(url);
+          resolve(outBlob);
+        }, mime, params.imgQuality);
+      };
+      img.onerror = (e) => { URL.revokeObjectURL(url); reject(e); };
+      img.src = url;
+    });
+  }
+
+  async function compressOfficeZip(file, params) {
+    const zip = await JSZip.loadAsync(await file.arrayBuffer());
+    const mediaTasks = [];
+    zip.forEach((relativePath, zipEntry) => {
+      if (!zipEntry.dir && (relativePath.startsWith('word/media/') || relativePath.startsWith('xl/media/'))) {
+        const lower = relativePath.toLowerCase();
+        if (lower.endsWith('.jpg') || lower.endsWith('.jpeg')) {
+          mediaTasks.push((async () => {
+            const origBlob = await zipEntry.async('blob');
+            const compBlob = await compressImageBlob(origBlob, params, false);
+            if (compBlob.size < origBlob.size) zip.file(relativePath, await compBlob.arrayBuffer());
+          })());
+        } else if (lower.endsWith('.png')) {
+          mediaTasks.push((async () => {
+            const origBlob = await zipEntry.async('blob');
+            const compBlob = await compressImageBlob(origBlob, params, true);
+            if (compBlob.size < origBlob.size) zip.file(relativePath, await compBlob.arrayBuffer());
+          })());
+        }
+      }
+    });
+    await Promise.all(mediaTasks);
+    return await zip.generateAsync({
+      type: 'blob',
+      compression: 'DEFLATE',
+      compressionOptions: { level: 9 }
+    });
+  }
+
+  async function compressPdfFile(file, params) {
+    const origBytes = await file.arrayBuffer();
+    const srcPdf = await pdfjsLib.getDocument({ data: origBytes }).promise;
+    const outPdf = await PDFLib.PDFDocument.create();
+
+    for (let p = 1; p <= srcPdf.numPages; p++) {
+      const page = await srcPdf.getPage(p);
+      const origViewport = page.getViewport({ scale: 1 });
+      const renderViewport = page.getViewport({ scale: params.pdfScale });
+
+      const canvas = document.createElement('canvas');
+      canvas.width = renderViewport.width;
+      canvas.height = renderViewport.height;
+      const ctx = canvas.getContext('2d');
+      ctx.fillStyle = '#ffffff';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+      await page.render({ canvasContext: ctx, viewport: renderViewport }).promise;
+      const jpgBlob = await new Promise((res) => canvas.toBlob(res, 'image/jpeg', params.pdfQuality));
+      const jpgImage = await outPdf.embedJpg(await jpgBlob.arrayBuffer());
+
+      const newPage = outPdf.addPage([origViewport.width, origViewport.height]);
+      newPage.drawImage(jpgImage, { x: 0, y: 0, width: origViewport.width, height: origViewport.height });
+    }
+
+    const compressedBytes = await outPdf.save({ useObjectStreams: true });
+    return new Blob([compressedBytes], { type: 'application/pdf' });
+  }
+
+  compProcessBtn.addEventListener('click', async () => {
+    if (compQueue.length === 0) return;
+    compProcessBtn.disabled = true;
+    const params = getCompressParams(compLevel.value);
+    setCompStatus('Sedang mengompres file...', '');
+
+    try {
+      const results = [];
+      let totalBefore = 0;
+      let totalAfter = 0;
+
+      for (const file of compQueue) {
+        totalBefore += file.size;
+        const ext = getExt(file.name);
+        const baseName = file.name.replace(/\.[^/.]+$/, '');
+        let outBlob, outName;
+
+        if (ext === 'docx' || ext === 'xlsx') {
+          outBlob = await compressOfficeZip(file, params);
+          outName = `${baseName}_compressed.${ext}`;
+        } else if (ext === 'pdf') {
+          outBlob = await compressPdfFile(file, params);
+          outName = `${baseName}_compressed.pdf`;
+        } else {
+          const isPng = ext === 'png';
+          outBlob = await compressImageBlob(file, params, isPng);
+          outName = `${baseName}_compressed.${isPng ? 'png' : 'jpg'}`;
+        }
+
+        if (outBlob.size >= file.size) {
+          outBlob = file;
+          outName = file.name;
+        }
+
+        totalAfter += outBlob.size;
+        results.push({ blob: outBlob, name: outName });
+      }
+
+      if (results.length === 1) {
+        downloadBlob(results[0].blob, results[0].name);
+      } else {
+        const zip = new JSZip();
+        results.forEach((r) => zip.file(r.name, r.blob));
+        downloadBlob(await zip.generateAsync({ type: 'blob' }), `hasil_kompres_${Date.now()}.zip`);
+      }
+
+      const savedPercent = totalBefore > 0 ? Math.max(0, Math.round(((totalBefore - totalAfter) / totalBefore) * 100)) : 0;
+      setCompStatus(
+        `Selesai! Ukuran turun dari ${formatBytes(totalBefore)} → ${formatBytes(totalAfter)} (Hemat ${savedPercent}%).`,
+        'success'
+      );
+    } catch (err) {
+      console.error(err);
+      setCompStatus('Gagal mengompres salah satu file. Pastikan file tidak rusak atau terkunci password.', 'error');
+    } finally {
+      compProcessBtn.disabled = false;
+    }
+  });
+</script>
+
+</body>
+</html>
